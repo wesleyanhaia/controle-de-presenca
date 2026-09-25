@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useNavigate } from 'react-router-dom'
 import {
   CalendarCheck,
   ClipboardList,
@@ -7,9 +8,17 @@ import {
   MapPin,
   QrCode,
 } from "lucide-react";
-import "./Sidebar.css";
+import { logout } from '../services/auth'
+import "./SideBar.css";
 
 function Sidebar() {
+  const navigate = useNavigate()
+
+  function handleLogout() {
+    logout()
+    navigate('/login', { replace: true })
+  }
+
   return (
     <aside className="sidebar">
       <div>
@@ -29,6 +38,8 @@ function Sidebar() {
 
           <NavLink
             to="/dashboard"
+            title="Dashboard"
+            aria-label="Dashboard"
             className={({ isActive }) =>
               `sidebar__link ${isActive ? "sidebar__link--active" : ""}`
             }
@@ -39,6 +50,8 @@ function Sidebar() {
 
           <NavLink
             to="/chamada"
+            title="Realizar chamada"
+            aria-label="Realizar chamada"
             className={({ isActive }) =>
               `sidebar__link ${isActive ? "sidebar__link--active" : ""}`
             }
@@ -48,8 +61,9 @@ function Sidebar() {
           </NavLink>
 
           <NavLink
-          style={{backgroundColor:"white" }}
             to="/registros"
+            title="Registros"
+            aria-label="Registros"
             className={({ isActive }) =>
               `sidebar__link ${isActive ? "sidebar__link--active" : ""}`
             }
@@ -69,7 +83,7 @@ function Sidebar() {
           </div>
         </div>
 
-        <button className="sidebar__logout" type="button">
+        <button className="sidebar__logout" type="button" onClick={handleLogout} title="Sair da conta">
           <LogOut size={19} />
           Sair da conta
         </button>

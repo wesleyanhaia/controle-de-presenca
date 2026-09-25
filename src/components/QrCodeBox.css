@@ -1,0 +1,40 @@
+.qr-code-box {
+	width: 264px;
+	display: grid;
+	justify-items: center;
+	gap: 14px;
+}
+
+.qr-code-box__image {
+	width: 256px;
+	height: 256px;
+	display: grid;
+	place-items: center;
+	border: 1px solid #e5e9e5;
+	background: #ffffff;
+}
+
+.qr-code-box__image svg {
+	width: 224px;
+	height: 224px;
+}
+
+.qr-code-box__timer {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	color: #57665d;
+	font-size: 0.82rem;
+}
+
+.qr-code-box__timer strong {
+	color: #172b24;
+	font-variant-numeric: tabular-nums;
+}
+
+.qr-code-box__indicator {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: #23876c;
+}

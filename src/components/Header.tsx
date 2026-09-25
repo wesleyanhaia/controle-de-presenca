@@ -1,17 +1,26 @@
-import { Bell, ChevronDown, Menu } from "lucide-react";
-import "./Header.css";
+import { Bell, ChevronDown } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
+import { getProfessorLogado } from '../services/auth'
+import './Header.css'
 
 function Header() {
+  const { pathname } = useLocation()
+  const professor = getProfessorLogado()
+  const nome = professor?.nome ?? 'Professor'
+  const primeiroNome = nome.split(' ')[0]
+  const iniciais = nome.split(' ').filter(Boolean).slice(0, 2).map((parte) => parte[0]).join('').toUpperCase()
+  const titulo = pathname === '/chamada'
+    ? 'Realizar chamada'
+    : pathname === '/registros'
+      ? 'Registros de presença'
+      : 'Visão geral'
+
   return (
     <header className="header">
       <div className="header__welcome">
-        <button className="header__menu-button" type="button">
-          <Menu size={23} />
-        </button>
-
         <div>
-          <p>Visão geral</p>
-          <h1>Olá, Professor!</h1>
+          <p>{titulo}</p>
+          <h1>Olá, {primeiroNome}!</h1>
         </div>
       </div>
 
@@ -26,10 +35,10 @@ function Header() {
         </button>
 
         <div className="header__profile">
-          <div className="header__avatar">WA</div>
+          <div className="header__avatar">{iniciais}</div>
 
           <div className="header__profile-info">
-            <strong>Wesley Anhaia</strong>
+            <strong>{nome}</strong>
             <span>Professor</span>
           </div>
 

@@ -418,14 +418,6 @@
 }
 
 @media (max-width: 650px) {
-  .main-content {
-    margin-left: 0;
-  }
-
-  .sidebar {
-    display: none;
-  }
-
   .dashboard {
     padding: 23px 18px 35px;
   }
@@ -438,6 +430,14 @@
 
   .dashboard__stats {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard__grid > * {
+    min-width: 0;
   }
 
   .next-class__details {

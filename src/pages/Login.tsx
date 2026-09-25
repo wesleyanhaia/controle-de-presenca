@@ -47,7 +47,7 @@ export default function Login() {
             <input
               id="email"
               type="email"
-              placeholder="professor@unesc.net"
+              placeholder="professor@unesc.br"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               autoComplete="email"
@@ -82,8 +82,8 @@ export default function Login() {
 
         <div className="login-card__test-info">
           <strong>Acesso temporário para teste</strong>
-          <span>E-mail: professor@unesc.net</span>
-          <span>Senha: 123</span>
+          <span>E-mail: professor@unesc.br</span>
+          <span>Senha: 123456</span>
         </div>
       </section>
     </main>

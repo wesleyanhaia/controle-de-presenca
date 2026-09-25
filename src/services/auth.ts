@@ -5,8 +5,8 @@ const CHAVE_PROFESSOR = 'professor'
 
 const professorTeste: Professor = {
   id: 1,
-  nome: 'Professor(a) de Teste',
-  email: 'professor@unesc.net',
+  nome: 'Wesley Anhaia da Silva',
+  email: 'professor@unesc.br',
 }
 
 interface LoginResponse {
@@ -24,7 +24,7 @@ export async function login(
     Quando o backend Spring Boot estiver pronto, esta função enviará
     os dados para a API e receberá um token JWT real.
   */
-  if (email !== 'professor@unesc.net' || senha !== '123') {
+  if (email !== 'professor@unesc.br' || senha !== '123456') {
     throw new Error('E-mail ou senha inválidos.')
   }
 
