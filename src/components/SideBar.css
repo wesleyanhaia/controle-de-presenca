@@ -171,3 +171,15 @@
     height: 21px;
   }
 }
+/* Na barra compacta ficam apenas os ícones. */
+@media (max-width: 850px) {
+  .sidebar__brand > div:last-child,
+  .sidebar__section-title,
+  .sidebar__privacy {
+    display: none;
+  }
+
+  .sidebar__navigation {
+    margin-top: 20px;
+  }
+}

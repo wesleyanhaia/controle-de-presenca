@@ -1,7 +1,7 @@
 export type StatusPresenca = 'PRESENTE' | 'AUSENTE' | 'PENDENTE'
 
 export interface Presenca {
-  id: number
+  id: string
   alunoNome: string
   matricula: string
   turmaId: number

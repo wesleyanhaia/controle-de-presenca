@@ -136,3 +136,13 @@
     gap: 12px;
   }
 }
+@media (max-width: 600px) {
+  .header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .header__actions {
+    width: auto;
+  }
+}

@@ -1,4 +1,3 @@
-import { Bell, ChevronDown } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { getProfessorLogado } from '../services/auth'
 import './Header.css'
@@ -25,24 +24,13 @@ function Header() {
       </div>
 
       <div className="header__actions">
-        <button
-          className="header__notification"
-          type="button"
-          aria-label="Ver notificações"
-        >
-          <Bell size={21} />
-          <span />
-        </button>
-
         <div className="header__profile">
-          <div className="header__avatar">{iniciais}</div>
+          <div className="header__avatar" aria-hidden="true">{iniciais}</div>
 
           <div className="header__profile-info">
             <strong>{nome}</strong>
-            <span>Professor</span>
+            <span>{professor?.email ?? 'Professor'}</span>
           </div>
-
-          <ChevronDown size={18} className="header__profile-arrow" />
         </div>
       </div>
     </header>

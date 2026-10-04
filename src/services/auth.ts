@@ -1,12 +1,14 @@
 import type { Professor } from '../types/Professor'
+import { api, ApiError, CHAVE_PROFESSOR, CHAVE_TOKEN, limparSessao } from './api'
 
-const CHAVE_TOKEN = 'token'
-const CHAVE_PROFESSOR = 'professor'
+export interface UsuarioApi extends Professor {
+  perfil: 'PROFESSOR' | 'ALUNO'
+  matricula?: string
+}
 
-const professorTeste: Professor = {
-  id: 1,
-  nome: 'Wesley Anhaia da Silva',
-  email: 'professor@unesc.br',
+export interface LoginApi {
+  token: string
+  usuario: UsuarioApi
 }
 
 interface LoginResponse {
@@ -18,30 +20,25 @@ export async function login(
   email: string,
   senha: string,
 ): Promise<LoginResponse> {
-  /*
-    Esta validação é temporária, somente para desenvolver o frontend.
+  const { token, usuario } = await api<LoginApi>('/auth/login', {
+    body: { email, senha },
+    token: null,
+  })
 
-    Quando o backend Spring Boot estiver pronto, esta função enviará
-    os dados para a API e receberá um token JWT real.
-  */
-  if (email !== 'professor@unesc.br' || senha !== '123456') {
-    throw new Error('E-mail ou senha inválidos.')
+  if (usuario.perfil !== 'PROFESSOR') {
+    throw new ApiError(403, 'SEM_PERMISSAO', 'Este portal é exclusivo para professores. Alunos registram a presença pelo aplicativo.')
   }
 
-  const tokenSimulado = 'token-professor-simulado'
+  const professor: Professor = { id: usuario.id, nome: usuario.nome, email: usuario.email }
 
-  localStorage.setItem(CHAVE_TOKEN, tokenSimulado)
-  localStorage.setItem(CHAVE_PROFESSOR, JSON.stringify(professorTeste))
+  localStorage.setItem(CHAVE_TOKEN, token)
+  localStorage.setItem(CHAVE_PROFESSOR, JSON.stringify(professor))
 
-  return {
-    token: tokenSimulado,
-    professor: professorTeste,
-  }
+  return { token, professor }
 }
 
 export function logout() {
-  localStorage.removeItem(CHAVE_TOKEN)
-  localStorage.removeItem(CHAVE_PROFESSOR)
+  limparSessao()
 }
 
 export function isAuthenticated() {
@@ -55,5 +52,9 @@ export function getProfessorLogado(): Professor | null {
     return null
   }
 
-  return JSON.parse(professorSalvo) as Professor
+  try {
+    return JSON.parse(professorSalvo) as Professor
+  } catch {
+    return null
+  }
 }

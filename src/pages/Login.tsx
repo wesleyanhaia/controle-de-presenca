@@ -1,15 +1,29 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { login } from '../services/auth'
+import { Eye, EyeOff } from 'lucide-react'
+import { Navigate, useNavigate } from 'react-router-dom'
+import { CHAVE_SESSAO_EXPIRADA, mensagemDeErro } from '../services/api'
+import { isAuthenticated, login } from '../services/auth'
 import "./Login.css"
+
+function consumirAvisoDeSessao() {
+  const expirada = sessionStorage.getItem(CHAVE_SESSAO_EXPIRADA)
+  sessionStorage.removeItem(CHAVE_SESSAO_EXPIRADA)
+  return expirada ? 'Sua sessão expirou. Entre novamente para continuar.' : ''
+}
 
 export default function Login() {
   const navigate = useNavigate()
 
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
+  const [senhaVisivel, setSenhaVisivel] = useState(false)
+  const [aviso] = useState(consumirAvisoDeSessao)
   const [mensagemErro, setMensagemErro] = useState('')
   const [carregando, setCarregando] = useState(false)
+
+  if (isAuthenticated() && !carregando) {
+    return <Navigate to="/dashboard" replace />
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -18,11 +32,11 @@ export default function Login() {
       setCarregando(true)
       setMensagemErro('')
 
-      await login(email, senha)
+      await login(email.trim(), senha)
 
-      navigate('/dashboard')
-    } catch {
-      setMensagemErro('E-mail ou senha inválidos.')
+      navigate('/dashboard', { replace: true })
+    } catch (erro) {
+      setMensagemErro(mensagemDeErro(erro, 'Não foi possível entrar. Tente novamente.'))
     } finally {
       setCarregando(false)
     }
@@ -51,6 +65,7 @@ export default function Login() {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               autoComplete="email"
+              autoFocus
               required
             />
           </div>
@@ -58,16 +73,33 @@ export default function Login() {
           <div className="form-group">
             <label htmlFor="senha">Senha</label>
 
-            <input
-              id="senha"
-              type="password"
-              placeholder="Digite sua senha"
-              value={senha}
-              onChange={(event) => setSenha(event.target.value)}
-              autoComplete="current-password"
-              required
-            />
+            <div className="form-group__password">
+              <input
+                id="senha"
+                type={senhaVisivel ? 'text' : 'password'}
+                placeholder="Digite sua senha"
+                value={senha}
+                onChange={(event) => setSenha(event.target.value)}
+                autoComplete="current-password"
+                required
+              />
+
+              <button
+                type="button"
+                onClick={() => setSenhaVisivel((visivel) => !visivel)}
+                aria-label={senhaVisivel ? 'Ocultar senha' : 'Mostrar senha'}
+                title={senhaVisivel ? 'Ocultar senha' : 'Mostrar senha'}
+              >
+                {senhaVisivel ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
+
+          {aviso && !mensagemErro && (
+            <p className="form-notice" role="status">
+              {aviso}
+            </p>
+          )}
 
           {mensagemErro && (
             <p className="form-error" role="alert">
@@ -75,13 +107,13 @@ export default function Login() {
             </p>
           )}
 
-          <button className="button button--primary" type="submit">
+          <button className="button button--primary" type="submit" disabled={carregando}>
             {carregando ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
 
         <div className="login-card__test-info">
-          <strong>Acesso temporário para teste</strong>
+          <strong>Acesso de demonstração</strong>
           <span>E-mail: professor@unesc.br</span>
           <span>Senha: 123456</span>
         </div>

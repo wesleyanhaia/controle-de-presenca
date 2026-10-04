@@ -1,0 +1,64 @@
+.page-state {
+  min-height: 260px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 32px 20px;
+  border: 1px solid #e3eae5;
+  color: #6d7e74;
+  background: #ffffff;
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.page-state strong {
+  color: #243a2e;
+  font-size: 0.98rem;
+}
+
+.page-state--error {
+  color: #a03f32;
+}
+
+.page-state--error span {
+  max-width: 460px;
+  color: #6d7e74;
+  line-height: 1.5;
+}
+
+.page-state button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 0 14px;
+  border: 1px solid #cfded4;
+  border-radius: 4px;
+  color: #286a50;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.page-state button:hover {
+  background: #f1f8f4;
+}
+
+.page-state__spinner {
+  animation: page-state-spin 0.9s linear infinite;
+}
+
+@keyframes page-state-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-state__spinner {
+    animation: none;
+  }
+}

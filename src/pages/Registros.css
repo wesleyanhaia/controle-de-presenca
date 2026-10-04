@@ -371,3 +371,62 @@
 		padding: 10px 15px;
 	}
 }
+
+.record-status--pendente {
+	color: #8a6114;
+	background: #fdf4dc;
+}
+
+.records-page__actions {
+	display: flex;
+	gap: 10px;
+}
+
+.records-page__error {
+	margin: 0 0 18px;
+	padding: 12px 14px;
+	border: 1px solid #f1d2cc;
+	color: #a03f32;
+	background: #fff4f1;
+	font-size: 0.88rem;
+}
+
+.records-frequency {
+	margin-top: 20px;
+}
+
+.records-frequency__hint {
+	color: #718078;
+	font-size: 0.76rem;
+}
+
+.records-table td > .records-frequency__bar {
+	width: 120px;
+	height: 6px;
+	margin-top: 6px;
+	background: #e8eeea;
+}
+
+.records-frequency__bar > span {
+	height: 100%;
+	display: block;
+	background: #2c9b6f;
+}
+
+.records-table td > strong.records-frequency__low {
+	color: #b65346;
+}
+
+.records-frequency__bar--low > span {
+	background: #d0695b;
+}
+
+@media (max-width: 620px) {
+	.records-page__actions {
+		width: 100%;
+	}
+
+	.records-page__actions .records-page__export {
+		flex: 1;
+	}
+}

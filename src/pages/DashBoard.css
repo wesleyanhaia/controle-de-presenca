@@ -448,3 +448,16 @@
     justify-content: flex-start;
   }
 }
+.status--active {
+  color: #1d5fbf;
+  background: #e4effd;
+}
+
+.recent-classes td {
+  white-space: nowrap;
+}
+
+.next-class__footer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
