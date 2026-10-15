@@ -362,7 +362,7 @@ export default function Chamada() {
             <p>
               Executa o mesmo fluxo do aplicativo do aluno: login, envio do QR Code atual e da localização deste
               dispositivo. O servidor valida o código, a matrícula na turma, o raio de {chamada.raioMetros} m e a duplicidade.
-              Contas de demonstração: aluno1@unesc.net a aluno12@unesc.net, senha 123456.
+              Contas de demonstração: aluno1@unesc.net a aluno12@unesc.net, senha 123.
             </p>
             <form className="call-test__form" onSubmit={handleRegistroDoAluno}>
               <label className="call-field">

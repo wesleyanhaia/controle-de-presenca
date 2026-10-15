@@ -3,16 +3,18 @@
 Protótipo de controle de presença acadêmica com QR Code temporário e validação por geolocalização.
 
 - **Frontend** (raiz do projeto): aplicação web do professor em React + TypeScript + Vite.
-- **Backend** (`backend/`): API REST em Node.js + Express + TypeScript. Detalhes em [backend/README.md](backend/README.md).
+- **Aplicativo do aluno** (`mobile/`): React Native + Expo + TypeScript, para Android. Detalhes em [mobile/README.md](mobile/README.md).
+- **Backend** (`backend/`): API REST em Node.js + Express + TypeScript, com banco PostgreSQL. Detalhes em [backend/README.md](backend/README.md).
 
 ## Executar
 
-São dois terminais, um para cada parte:
+São dois terminais para a parte web (e um terceiro para o aplicativo, veja [mobile/README.md](mobile/README.md)):
 
 ```bash
 # Terminal 1 – API em http://localhost:3333
 cd backend
 npm install
+npm run db:setup   # uma vez: cria o banco PostgreSQL (configuração em backend/.env)
 npm run dev
 
 # Terminal 2 – aplicação web em http://localhost:5173
@@ -24,12 +26,12 @@ O Vite encaminha as chamadas de `/api` para o backend (veja `vite.config.ts`), e
 
 ## Acesso de demonstração
 
-| Perfil    | E-mail                                  | Senha    |
-| --------- | --------------------------------------- | -------- |
-| Professor | `professor@unesc.br`                    | `123456` |
-| Alunos    | `aluno1@unesc.net` … `aluno12@unesc.net` | `123456` |
+| Perfil    | Acesso                                                          | Senha    |
+| --------- | --------------------------------------------------------------- | -------- |
+| Professor | e-mail `professor@unesc.br` (site)                              | `123456` |
+| Alunos    | matrícula `1` a `12` (aplicativo) ou `aluno1@unesc.net` … `aluno12@unesc.net` | `123`    |
 
-O portal web aceita apenas o professor. As contas de aluno servem para o aplicativo do aluno e para o teste disponível na tela de chamada.
+O portal web aceita apenas o professor. As contas de aluno servem para o aplicativo do aluno (matrícula 1 = Ana Paula, 2 = Bruno, e assim por diante) e para o teste disponível na tela de chamada. Os dados de demonstração começam sem chamadas, presenças ou faltas.
 
 ## Funcionalidades
 
@@ -45,7 +47,5 @@ O portal web aceita apenas o professor. As contas de aluno servem para o aplicat
 
 ## Limites do protótipo
 
-- O aplicativo Android do aluno ainda não existe. A API dele já está pronta (`POST /api/presencas` e `GET /api/alunos/me/presencas`), e a tela de chamada tem a opção "Testar o registro do aluno neste dispositivo", que executa exatamente esse fluxo.
-- Os dados ficam em memória, com cópia em `backend/data/db.json`. A troca para PostgreSQL está preparada, mas não implementada (veja o README do backend).
-- Não há telas de cadastro de professores, alunos e turmas: eles vêm dos dados de demonstração.
+- Os cadastros de professores, alunos, turmas e matrículas existem na API (CRUD), mas ainda não há telas para eles na aplicação web.
 - Em computadores sem GPS a localização do navegador pode errar por mais de 20 m; a tela avisa a precisão e permite informar as coordenadas manualmente.

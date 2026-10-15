@@ -36,4 +36,6 @@ export const config = {
   qrValidadeMs: numero('QR_VALIDADE_SEGUNDOS', 30) * 1000,
   raioPermitidoMetros: numero('RAIO_PERMITIDO_METROS', 20),
   arquivoDados: process.env.ARQUIVO_DADOS ?? 'data/db.json',
+  /** Conexão com o PostgreSQL; vazia = repositório em memória. */
+  databaseUrl: process.env.DATABASE_URL || '',
 }

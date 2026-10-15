@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { config } from '../config.ts'
-import type { Aluno, Chamada, OrigemPresenca, Presenca, StatusPresenca, Turma } from '../domain/types.ts'
-import { erros } from '../errors.ts'
+import type { Aluno, Chamada, OrigemPresenca, Presenca, ResultadoTentativa, StatusPresenca } from '../domain/types.ts'
+import { ErroApp, erros } from '../errors.ts'
 import { ErroDeDuplicidade, type Repositorios } from '../repositories/contracts.ts'
 import { coordenadasValidas, distanciaEmMetros } from './geo.ts'
 import { qrAtual, validarToken } from './qr.ts'
@@ -20,12 +20,23 @@ export interface RegistroDTO {
   distanciaMetros?: number
 }
 
+/** Códigos de erro do registro pelo aplicativo que entram no histórico de tentativas. */
+const RESULTADOS_RECUSADOS = new Set<string>([
+  'QR_INVALIDO',
+  'QR_EXPIRADO',
+  'CHAMADA_ENCERRADA',
+  'SEM_PERMISSAO',
+  'PRESENCA_DUPLICADA',
+  'COORDENADAS_INVALIDAS',
+  'FORA_DO_RAIO',
+] satisfies ResultadoTentativa[])
+
 function porcentagem(parte: number, total: number) {
   return total ? Math.round((parte / total) * 100) : 0
 }
 
 export function criarPresencaService(repositorios: Repositorios) {
-  const { alunos, turmas, chamadas, presencas } = repositorios
+  const { alunos, turmas, chamadas, presencas, tentativas } = repositorios
 
   async function turmaDoProfessor(turmaId: number, professorId: number) {
     const turma = await turmas.buscarPorId(turmaId)
@@ -97,11 +108,6 @@ export function criarPresencaService(repositorios: Repositorios) {
     }
   }
 
-  async function turmaDTO(turma: Turma) {
-    const { professorId: _professorId, ...dados } = turma
-    return { ...dados, quantidadeAlunos: (await alunos.listarPorTurma(turma.id)).length }
-  }
-
   async function criarPresenca(presenca: Omit<Presenca, 'id'>) {
     try {
       return await presencas.criar(presenca)
@@ -110,6 +116,61 @@ export function criarPresencaService(repositorios: Repositorios) {
         throw erros.conflito('PRESENCA_DUPLICADA', 'A presença deste aluno já foi registrada nesta chamada.')
       }
       throw erro
+    }
+  }
+
+  async function validarERegistrar(
+    alunoId: number,
+    entrada: { chamadaId: string; token: string; latitude: number; longitude: number },
+    tentativa: { chamadaId: string | null; distanciaMetros: number | null },
+  ) {
+    const chamada = await chamadas.buscarPorId(entrada.chamadaId)
+    if (!chamada) throw erros.invalido('QR_INVALIDO', 'QR Code inválido.')
+    tentativa.chamadaId = chamada.id
+    if (chamada.encerradaEm) throw erros.conflito('CHAMADA_ENCERRADA', 'Esta chamada já foi encerrada.')
+
+    const resultado = validarToken(chamada, entrada.token)
+    if (resultado === 'EXPIRADO') {
+      throw erros.invalido('QR_EXPIRADO', 'O QR Code expirou. Leia o código atualizado e tente novamente.')
+    }
+    if (resultado === 'INVALIDO') throw erros.invalido('QR_INVALIDO', 'QR Code inválido.')
+
+    if (!(await turmas.alunoMatriculado(chamada.turmaId, alunoId))) {
+      throw erros.semPermissao('Você não está matriculado na turma desta chamada.')
+    }
+
+    if (await presencas.buscarPorChamadaEAluno(chamada.id, alunoId)) {
+      throw erros.conflito('PRESENCA_DUPLICADA', 'A presença deste aluno já foi registrada nesta chamada.')
+    }
+
+    if (!coordenadasValidas(entrada.latitude, entrada.longitude)) {
+      throw erros.invalido('COORDENADAS_INVALIDAS', 'Não foi possível validar a localização enviada.')
+    }
+
+    const distancia = distanciaEmMetros(chamada.latitude, chamada.longitude, entrada.latitude, entrada.longitude)
+    tentativa.distanciaMetros = Math.round(distancia)
+    if (distancia > chamada.raioMetros) {
+      throw erros.naoProcessavel(
+        'FORA_DO_RAIO',
+        `Localização fora do limite de ${chamada.raioMetros} m do local da aula (${Math.round(distancia)} m).`,
+      )
+    }
+
+    const presenca = await criarPresenca({
+      chamadaId: chamada.id,
+      alunoId,
+      registradaEm: new Date().toISOString(),
+      origem: 'QR_CODE',
+      latitude: entrada.latitude,
+      longitude: entrada.longitude,
+      distanciaMetros: Math.round(distancia),
+    })
+
+    return {
+      chamadaId: chamada.id,
+      turmaId: chamada.turmaId,
+      registradaEm: presenca.registradaEm,
+      distanciaMetros: presenca.distanciaMetros,
     }
   }
 
@@ -125,10 +186,6 @@ export function criarPresencaService(repositorios: Repositorios) {
 
   return {
     // ---------- Professor ----------
-
-    async listarTurmas(professorId: number) {
-      return Promise.all((await turmas.listarPorProfessor(professorId)).map(turmaDTO))
-    },
 
     /** Frequência de cada aluno da turma, considerando as chamadas encerradas. */
     async frequenciaDaTurma(turmaId: number, professorId: number) {
@@ -219,55 +276,57 @@ export function criarPresencaService(repositorios: Repositorios) {
       })
     },
 
+    /** Remove uma presença registrada por engano (o aluno volta a pendente ou ausente). */
+    async removerPresenca(chamadaId: string, professorId: number, alunoId: number) {
+      const chamada = await chamadaDoProfessor(chamadaId, professorId)
+      if (!(await presencas.excluir(chamada.id, alunoId))) {
+        throw erros.naoEncontrado('Não há presença registrada para este aluno nesta chamada.')
+      }
+    },
+
+    /** Exclui uma chamada aberta por engano, com as presenças registradas nela. */
+    async excluirChamada(chamadaId: string, professorId: number) {
+      const chamada = await chamadaDoProfessor(chamadaId, professorId)
+      await chamadas.excluir(chamada.id)
+    },
+
+    /** Tentativas de registro pelo aplicativo nas chamadas do professor, por resultado. */
+    async relatorioDeTentativas(professorId: number) {
+      const lista = await chamadas.listarPorProfessor(professorId)
+      const porResultado = await tentativas.contarPorResultado(lista.map((chamada) => chamada.id))
+      const total = Object.values(porResultado).reduce((soma, quantidade) => soma + (quantidade ?? 0), 0)
+      const aceitas = porResultado.REGISTRADA ?? 0
+      return { total, aceitas, recusadas: total - aceitas, percentualSucesso: porcentagem(aceitas, total), porResultado }
+    },
+
     // ---------- Aluno ----------
 
-    /** Valida QR Code, matrícula, duplicidade e localização antes de registrar a presença. */
+    /**
+     * Valida QR Code, matrícula, duplicidade e localização antes de registrar a
+     * presença. Toda tentativa, aceita ou recusada, fica registrada para os
+     * indicadores de avaliação do protótipo.
+     */
     async registrarPresenca(alunoId: number, entrada: { chamadaId: string; token: string; latitude: number; longitude: number }) {
-      const chamada = await chamadas.buscarPorId(entrada.chamadaId)
-      if (!chamada) throw erros.invalido('QR_INVALIDO', 'QR Code inválido.')
-      if (chamada.encerradaEm) throw erros.conflito('CHAMADA_ENCERRADA', 'Esta chamada já foi encerrada.')
+      const tentativa: { chamadaId: string | null; distanciaMetros: number | null } = { chamadaId: null, distanciaMetros: null }
 
-      const resultado = validarToken(chamada, entrada.token)
-      if (resultado === 'EXPIRADO') {
-        throw erros.invalido('QR_EXPIRADO', 'O QR Code expirou. Leia o código atualizado e tente novamente.')
-      }
-      if (resultado === 'INVALIDO') throw erros.invalido('QR_INVALIDO', 'QR Code inválido.')
-
-      if (!(await turmas.alunoMatriculado(chamada.turmaId, alunoId))) {
-        throw erros.semPermissao('Você não está matriculado na turma desta chamada.')
+      async function anotar(resultado: ResultadoTentativa) {
+        try {
+          await tentativas.registrar({ alunoId, ...tentativa, resultado, tentadaEm: new Date().toISOString() })
+        } catch (erro) {
+          // O histórico de tentativas é auxiliar: uma falha nele não muda a resposta ao aluno.
+          console.warn('[tentativas] Não foi possível registrar a tentativa:', erro)
+        }
       }
 
-      if (await presencas.buscarPorChamadaEAluno(chamada.id, alunoId)) {
-        throw erros.conflito('PRESENCA_DUPLICADA', 'A presença deste aluno já foi registrada nesta chamada.')
-      }
-
-      if (!coordenadasValidas(entrada.latitude, entrada.longitude)) {
-        throw erros.invalido('COORDENADAS_INVALIDAS', 'Não foi possível validar a localização enviada.')
-      }
-
-      const distancia = distanciaEmMetros(chamada.latitude, chamada.longitude, entrada.latitude, entrada.longitude)
-      if (distancia > chamada.raioMetros) {
-        throw erros.naoProcessavel(
-          'FORA_DO_RAIO',
-          `Localização fora do limite de ${chamada.raioMetros} m do local da aula (${Math.round(distancia)} m).`,
-        )
-      }
-
-      const presenca = await criarPresenca({
-        chamadaId: chamada.id,
-        alunoId,
-        registradaEm: new Date().toISOString(),
-        origem: 'QR_CODE',
-        latitude: entrada.latitude,
-        longitude: entrada.longitude,
-        distanciaMetros: Math.round(distancia),
-      })
-
-      return {
-        chamadaId: chamada.id,
-        turmaId: chamada.turmaId,
-        registradaEm: presenca.registradaEm,
-        distanciaMetros: presenca.distanciaMetros,
+      try {
+        const resultado = await validarERegistrar(alunoId, entrada, tentativa)
+        await anotar('REGISTRADA')
+        return resultado
+      } catch (erro) {
+        if (erro instanceof ErroApp && RESULTADOS_RECUSADOS.has(erro.codigo)) {
+          await anotar(erro.codigo as ResultadoTentativa)
+        }
+        throw erro
       }
     },
 

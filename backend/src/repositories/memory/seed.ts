@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs'
-import type { Aluno, Chamada, Matricula, Presenca, Professor, Turma } from '../../domain/types.ts'
+import type { Aluno, Chamada, Matricula, Presenca, Professor, TentativaRegistro, Turma } from '../../domain/types.ts'
 
 export interface Dados {
   professores: Professor[]
@@ -8,44 +8,44 @@ export interface Dados {
   matriculas: Matricula[]
   chamadas: Chamada[]
   presencas: Presenca[]
+  tentativas: TentativaRegistro[]
 }
 
-export const SENHA_DE_DEMONSTRACAO = '123456'
+export const SENHA_DO_PROFESSOR = '123456'
+/** Senha curta só para facilitar os testes; cadastros pela API exigem 6 caracteres. */
+export const SENHA_DOS_ALUNOS = '123'
 
-function dataRelativa(diasAtras: number, hora: number, minuto: number) {
-  const data = new Date()
-  data.setDate(data.getDate() - diasAtras)
-  data.setHours(hora, minuto, 0, 0)
-  return data
-}
-
-/** Dados de demonstração usados enquanto não há banco de dados. */
+/**
+ * Dados de demonstração (repositório em memória e carga inicial do PostgreSQL).
+ * Começam sem chamadas: presenças e faltas surgem dos testes.
+ */
 export function dadosDeDemonstracao(): Dados {
-  const senhaHash = bcrypt.hashSync(SENHA_DE_DEMONSTRACAO, 8)
-
   const professores: Professor[] = [
-    { id: 1, nome: 'Wesley Anhaia da Silva', email: 'professor@unesc.br', senhaHash },
+    { id: 1, nome: 'Wesley Anhaia da Silva', email: 'professor@unesc.br', senhaHash: bcrypt.hashSync(SENHA_DO_PROFESSOR, 8) },
   ]
 
+  // Matrícula = número do aluno (1 a 12), para entrar rápido no aplicativo durante os testes.
+  const senhaDosAlunos = bcrypt.hashSync(SENHA_DOS_ALUNOS, 8)
+
   const alunos: Aluno[] = [
-    ['Ana Paula Martins', '20241021'],
-    ['Bruno Henrique Costa', '20241036'],
-    ['Camila Souza Lima', '20241049'],
-    ['Diego Alves Rocha', '20230918'],
-    ['Eduarda Mendes Silva', '20230942'],
-    ['Felipe Nunes Oliveira', '20230813'],
-    ['Gabriela Pereira Santos', '20241058'],
-    ['Henrique Cardoso Ramos', '20230877'],
-    ['Isabela Freitas Borges', '20241063'],
-    ['João Vitor Machado', '20230925'],
-    ['Larissa Teixeira Duarte', '20241077'],
-    ['Matheus Ribeiro Farias', '20230834'],
-  ].map(([nome, matricula], indice) => ({
+    'Ana Paula Martins',
+    'Bruno Henrique Costa',
+    'Camila Souza Lima',
+    'Diego Alves Rocha',
+    'Eduarda Mendes Silva',
+    'Felipe Nunes Oliveira',
+    'Gabriela Pereira Santos',
+    'Henrique Cardoso Ramos',
+    'Isabela Freitas Borges',
+    'João Vitor Machado',
+    'Larissa Teixeira Duarte',
+    'Matheus Ribeiro Farias',
+  ].map((nome, indice) => ({
     id: indice + 1,
     nome,
-    matricula,
+    matricula: String(indice + 1),
     email: `aluno${indice + 1}@unesc.net`,
-    senhaHash,
+    senhaHash: senhaDosAlunos,
   }))
 
   const turmaBase = { professorId: 1, semestre: '2026/2', latitude: null, longitude: null }
@@ -66,41 +66,5 @@ export function dadosDeDemonstracao(): Dados {
     ids.map((alunoId) => ({ turmaId: Number(turmaId), alunoId })),
   )
 
-  // Chamadas já encerradas, para o dashboard e os registros não iniciarem vazios.
-  const localDaAula = { latitude: -28.6775, longitude: -49.3697 }
-  const historico: { turmaId: number; diasAtras: number; presentes: number[] }[] = [
-    { turmaId: 1, diasAtras: 1, presentes: [1, 2, 4, 5, 7, 8] },
-    { turmaId: 2, diasAtras: 2, presentes: [4, 6, 9, 10] },
-    { turmaId: 3, diasAtras: 3, presentes: [1, 3, 6, 8, 12] },
-    { turmaId: 4, diasAtras: 6, presentes: [2, 7, 9] },
-  ]
-
-  const chamadas: Chamada[] = []
-  const presencas: Presenca[] = []
-
-  historico.forEach((aula, indice) => {
-    const chamadaId = `demo-${indice + 1}`
-    chamadas.push({
-      id: chamadaId,
-      turmaId: aula.turmaId,
-      professorId: 1,
-      iniciadaEm: dataRelativa(aula.diasAtras, 19, 0).toISOString(),
-      encerradaEm: dataRelativa(aula.diasAtras, 19, 20).toISOString(),
-      ...localDaAula,
-      raioMetros: 20,
-    })
-    aula.presentes.forEach((alunoId, posicao) => {
-      presencas.push({
-        id: presencas.length + 1,
-        chamadaId,
-        alunoId,
-        registradaEm: dataRelativa(aula.diasAtras, 19, 2 + posicao).toISOString(),
-        origem: 'QR_CODE',
-        ...localDaAula,
-        distanciaMetros: 4 + ((alunoId * 3) % 13),
-      })
-    })
-  })
-
-  return { professores, alunos, turmas, matriculas, chamadas, presencas }
+  return { professores, alunos, turmas, matriculas, chamadas: [], presencas: [], tentativas: [] }
 }

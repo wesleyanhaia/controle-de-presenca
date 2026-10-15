@@ -23,6 +23,13 @@ export function criarAuthService(repositorios: Repositorios) {
     return aluno && { id: aluno.id, nome: aluno.nome, email: aluno.email, perfil, matricula: aluno.matricula }
   }
 
+  function emitirToken(autenticado: UsuarioAutenticado) {
+    return jwt.sign({ perfil: autenticado.perfil }, config.jwtSecret, {
+      subject: String(autenticado.id),
+      expiresIn: config.jwtExpiraEm,
+    })
+  }
+
   return {
     async login(email: string, senha: string) {
       const professor = await repositorios.professores.buscarPorEmail(email)
@@ -34,12 +41,18 @@ export function criarAuthService(repositorios: Repositorios) {
       }
 
       const autenticado: UsuarioAutenticado = { id: conta.id, perfil: professor ? 'PROFESSOR' : 'ALUNO' }
-      const token = jwt.sign({ perfil: autenticado.perfil }, config.jwtSecret, {
-        subject: String(autenticado.id),
-        expiresIn: config.jwtExpiraEm,
-      })
+      return { token: emitirToken(autenticado), usuario: (await buscarUsuario(autenticado))! }
+    },
 
-      return { token, usuario: (await buscarUsuario(autenticado))! }
+    /** Login do aplicativo do aluno, pelo código de matrícula. */
+    async loginAluno(matricula: string, senha: string) {
+      const aluno = await repositorios.alunos.buscarPorMatricula(matricula)
+      if (!aluno || !(await bcrypt.compare(senha, aluno.senhaHash))) {
+        throw erros.naoAutenticado('Matrícula ou senha inválidas.')
+      }
+
+      const autenticado: UsuarioAutenticado = { id: aluno.id, perfil: 'ALUNO' }
+      return { token: emitirToken(autenticado), usuario: (await buscarUsuario(autenticado))! }
     },
 
     verificarToken(token: string): UsuarioAutenticado {

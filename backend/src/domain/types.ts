@@ -58,6 +58,30 @@ export interface Presenca {
   distanciaMetros: number | null
 }
 
+export type ResultadoTentativa =
+  | 'REGISTRADA'
+  | 'QR_INVALIDO'
+  | 'QR_EXPIRADO'
+  | 'CHAMADA_ENCERRADA'
+  | 'SEM_PERMISSAO'
+  | 'PRESENCA_DUPLICADA'
+  | 'COORDENADAS_INVALIDAS'
+  | 'FORA_DO_RAIO'
+
+/**
+ * Resultado de uma leitura de QR Code pelo aplicativo do aluno. Não guarda a
+ * coordenada do aluno, apenas a distância calculada (minimização de dados).
+ */
+export interface TentativaRegistro {
+  id: number
+  alunoId: number
+  /** Nula quando o QR Code não corresponde a nenhuma chamada. */
+  chamadaId: string | null
+  resultado: ResultadoTentativa
+  distanciaMetros: number | null
+  tentadaEm: string
+}
+
 export interface UsuarioAutenticado {
   id: number
   perfil: Perfil
