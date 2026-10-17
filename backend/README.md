@@ -97,9 +97,10 @@ Com `DATABASE_URL` definida no `.env`, a API usa o PostgreSQL. Sem ela, os dados
 ```bash
 npm run db:setup              # cria o banco "presenca" (se faltar), as tabelas e os dados de demonstração
 npm run db:setup -- --recriar # apaga tudo e recria do zero
+npm run db:setup -- --importar data/db.json # num banco vazio, carrega os dados usados antes do PostgreSQL
 ```
 
-O script só cria o que ainda não existe e só insere os dados de demonstração se não houver professores. Por isso, pode ser executado de novo sem perder dados.
+O script só cria o que ainda não existe e só insere dados (de demonstração ou do arquivo importado) se o banco estiver vazio. Por isso, pode ser executado de novo sem perder dados.
 
 ### Tabelas
 

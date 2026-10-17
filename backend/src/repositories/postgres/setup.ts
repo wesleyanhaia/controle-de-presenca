@@ -2,17 +2,19 @@ import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import pg from 'pg'
-import { dadosDeDemonstracao } from '../memory/seed.ts'
+import { dadosDeDemonstracao, type Dados } from '../memory/seed.ts'
 
 /*
   Prepara o banco PostgreSQL:
     1. cria o banco informado em DATABASE_URL, se ainda não existir;
     2. executa database/schema.sql (cria apenas o que falta);
-    3. insere os dados de demonstração, se ainda não houver professores.
+    3. se o banco estiver vazio, insere os dados de demonstração ou os de um
+       arquivo JSON do repositório em memória (data/db.json).
 
   Uso:
-    npm run db:setup              prepara o banco mantendo os dados existentes
-    npm run db:setup -- --recriar apaga todas as tabelas e começa do zero
+    npm run db:setup                               prepara o banco mantendo os dados existentes
+    npm run db:setup -- --recriar                  apaga todas as tabelas e começa do zero
+    npm run db:setup -- --importar data/db.json    carrega os dados usados antes do PostgreSQL
 */
 
 const ARQUIVO_SCHEMA = new URL('../../../database/schema.sql', import.meta.url)
@@ -37,16 +39,19 @@ async function criarBancoSeNecessario(connectionString: string) {
   }
 }
 
-async function inserirDadosDeDemonstracao(cliente: pg.Client) {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Insere os dados em um banco vazio, mantendo os ids. Devolve false se já houver dados. */
+async function inserirDados(cliente: pg.Client, dados: Dados, origem: string) {
   const { rows } = await cliente.query('SELECT COUNT(*)::int AS total FROM professores')
   if (rows[0].total > 0) {
-    console.log('[db] Já existem dados; a carga de demonstração foi ignorada.')
-    return
+    console.log(`[db] O banco já tem dados; ${origem} não foi carregado.`)
+    return false
   }
 
-  const dados = dadosDeDemonstracao()
-  // No banco o id da chamada é UUID; os ids "demo-N" da memória são trocados.
-  const idsDasChamadas = new Map(dados.chamadas.map((chamada) => [chamada.id, randomUUID()]))
+  // No banco o id da chamada é UUID; ids em outro formato (ex.: "demo-1") são trocados.
+  const idsDasChamadas = new Map(dados.chamadas.map((chamada) => [chamada.id, UUID.test(chamada.id) ? chamada.id : randomUUID()]))
+  const idDaChamada = (id: string | null) => (id === null ? null : idsDasChamadas.get(id) ?? null)
 
   await cliente.query('BEGIN')
   try {
@@ -76,19 +81,26 @@ async function inserirDadosDeDemonstracao(cliente: pg.Client) {
       await cliente.query(
         `INSERT INTO chamadas (id, turma_id, professor_id, iniciada_em, encerrada_em, latitude, longitude, raio_metros)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [idsDasChamadas.get(c.id), c.turmaId, c.professorId, c.iniciadaEm, c.encerradaEm, c.latitude, c.longitude, c.raioMetros],
+        [idDaChamada(c.id), c.turmaId, c.professorId, c.iniciadaEm, c.encerradaEm, c.latitude, c.longitude, c.raioMetros],
       )
     }
     for (const p of dados.presencas) {
       await cliente.query(
-        `INSERT INTO presencas (chamada_id, aluno_id, registrada_em, origem, latitude, longitude, distancia_metros)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [idsDasChamadas.get(p.chamadaId), p.alunoId, p.registradaEm, p.origem, p.latitude, p.longitude, p.distanciaMetros],
+        `INSERT INTO presencas (id, chamada_id, aluno_id, registrada_em, origem, latitude, longitude, distancia_metros)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [p.id, idDaChamada(p.chamadaId), p.alunoId, p.registradaEm, p.origem, p.latitude, p.longitude, p.distanciaMetros],
+      )
+    }
+    for (const t of dados.tentativas ?? []) {
+      await cliente.query(
+        `INSERT INTO tentativas_registro (id, aluno_id, chamada_id, resultado, distancia_metros, tentada_em)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [t.id, t.alunoId, idDaChamada(t.chamadaId), t.resultado, t.distanciaMetros, t.tentadaEm],
       )
     }
 
     // Os ids foram informados explicitamente; as sequências continuam do maior id.
-    for (const tabela of ['professores', 'alunos', 'turmas']) {
+    for (const tabela of ['professores', 'alunos', 'turmas', 'presencas', 'tentativas_registro']) {
       await cliente.query(
         `SELECT setval(pg_get_serial_sequence('${tabela}', 'id'), (SELECT MAX(id) FROM ${tabela}))`,
       )
@@ -96,17 +108,24 @@ async function inserirDadosDeDemonstracao(cliente: pg.Client) {
 
     await cliente.query('COMMIT')
     console.log(
-      `[db] Dados de demonstração inseridos: ${dados.professores.length} professor, ${dados.alunos.length} alunos, ` +
-        `${dados.turmas.length} turmas, ${dados.chamadas.length} chamadas.`,
+      `[db] ${origem} carregado: ${dados.professores.length} professor(es), ${dados.alunos.length} alunos, ` +
+        `${dados.turmas.length} turmas, ${dados.chamadas.length} chamadas, ${dados.presencas.length} presenças.`,
     )
+    return true
   } catch (erro) {
     await cliente.query('ROLLBACK')
     throw erro
   }
 }
 
-/** Cria o banco e as tabelas e, opcionalmente, insere os dados de demonstração. */
-export async function prepararBanco(connectionString: string, opcoes: { recriar?: boolean; demonstracao?: boolean } = {}) {
+/**
+ * Cria o banco e as tabelas e, se ele estiver vazio, insere os dados de
+ * demonstração ou os do arquivo JSON indicado em `importar`.
+ */
+export async function prepararBanco(
+  connectionString: string,
+  opcoes: { recriar?: boolean; demonstracao?: boolean; importar?: string } = {},
+) {
   await criarBancoSeNecessario(connectionString)
 
   const cliente = new pg.Client({ connectionString })
@@ -119,7 +138,12 @@ export async function prepararBanco(connectionString: string, opcoes: { recriar?
       console.log('[db] Tabelas anteriores removidas.')
     }
     await cliente.query(readFileSync(ARQUIVO_SCHEMA, 'utf8'))
-    if (opcoes.demonstracao ?? true) await inserirDadosDeDemonstracao(cliente)
+    if (opcoes.importar) {
+      const dados = JSON.parse(readFileSync(opcoes.importar, 'utf8')) as Dados
+      await inserirDados(cliente, dados, `O arquivo ${opcoes.importar}`)
+    } else if (opcoes.demonstracao ?? true) {
+      await inserirDados(cliente, dadosDeDemonstracao(), 'Os dados de demonstração')
+    }
   } finally {
     await cliente.end()
   }
@@ -140,7 +164,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   }
 
   try {
-    await prepararBanco(connectionString, { recriar: process.argv.includes('--recriar') })
+    const posicao = process.argv.indexOf('--importar')
+    const importar = posicao >= 0 ? process.argv[posicao + 1] : undefined
+    if (posicao >= 0 && !importar) throw new Error('Informe o arquivo depois de --importar (ex.: data/db.json).')
+    await prepararBanco(connectionString, { recriar: process.argv.includes('--recriar'), importar })
     console.log('[db] Banco pronto.')
   } catch (erro) {
     console.error('[db] Falha ao preparar o banco:', (erro as Error).message)
