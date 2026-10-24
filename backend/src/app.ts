@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import cors from 'cors'
 import express from 'express'
 import { config } from './config.ts'
@@ -19,6 +21,22 @@ export function criarApp(repositorios: Repositorios) {
     '/api',
     criarRotas(criarAuthService(repositorios), criarCadastroService(repositorios), criarPresencaService(repositorios)),
   )
+  app.use('/api', rotaNaoEncontrada)
+
+  // Em produção o mesmo servidor entrega o site do professor (npm run build na raiz),
+  // então site e API ficam no mesmo endereço e o site chama "/api" sem configuração.
+  if (config.pastaDoSite) {
+    const pasta = resolve(config.pastaDoSite)
+    if (!existsSync(join(pasta, 'index.html'))) {
+      console.warn(`[site] ${pasta}/index.html não encontrado; rode "npm run build" na raiz do projeto.`)
+    }
+    app.use(express.static(pasta))
+    // Rotas do React (/dashboard, /chamada...) abrem o index.html; o React decide a tela.
+    app.get('/{*caminho}', (_req, res) => {
+      res.sendFile(join(pasta, 'index.html'))
+    })
+  }
+
   app.use(rotaNaoEncontrada)
   app.use(tratarErros)
 

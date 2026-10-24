@@ -38,4 +38,9 @@ export const config = {
   arquivoDados: process.env.ARQUIVO_DADOS ?? 'data/db.json',
   /** Conexão com o PostgreSQL; vazia = repositório em memória. */
   databaseUrl: process.env.DATABASE_URL || '',
+  /**
+   * Pasta com o site do professor já compilado (dist/ da raiz). Quando
+   * definida, o backend entrega o site e a API no mesmo endereço (produção).
+   */
+  pastaDoSite: process.env.PASTA_SITE || '',
 }

@@ -45,7 +45,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 async function inserirDados(cliente: pg.Client, dados: Dados, origem: string) {
   const { rows } = await cliente.query('SELECT COUNT(*)::int AS total FROM professores')
   if (rows[0].total > 0) {
-    console.log(`[db] O banco já tem dados; ${origem} não foi carregado.`)
+    console.log(`[db] O banco já tem dados; a carga (${origem}) foi ignorada.`)
     return false
   }
 
@@ -108,7 +108,7 @@ async function inserirDados(cliente: pg.Client, dados: Dados, origem: string) {
 
     await cliente.query('COMMIT')
     console.log(
-      `[db] ${origem} carregado: ${dados.professores.length} professor(es), ${dados.alunos.length} alunos, ` +
+      `[db] Carga concluída (${origem}): ${dados.professores.length} professor(es), ${dados.alunos.length} alunos, ` +
         `${dados.turmas.length} turmas, ${dados.chamadas.length} chamadas, ${dados.presencas.length} presenças.`,
     )
     return true
@@ -140,9 +140,9 @@ export async function prepararBanco(
     await cliente.query(readFileSync(ARQUIVO_SCHEMA, 'utf8'))
     if (opcoes.importar) {
       const dados = JSON.parse(readFileSync(opcoes.importar, 'utf8')) as Dados
-      await inserirDados(cliente, dados, `O arquivo ${opcoes.importar}`)
+      await inserirDados(cliente, dados, `arquivo ${opcoes.importar}`)
     } else if (opcoes.demonstracao ?? true) {
-      await inserirDados(cliente, dadosDeDemonstracao(), 'Os dados de demonstração')
+      await inserirDados(cliente, dadosDeDemonstracao(), 'dados de demonstração')
     }
   } finally {
     await cliente.end()

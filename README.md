@@ -4,6 +4,7 @@ Protótipo de controle de presença acadêmica com QR Code temporário e valida�
 
 - **Frontend** (raiz do projeto): aplicação web do professor em React + TypeScript + Vite.
 - **Aplicativo do aluno** (`mobile/`): React Native + Expo + TypeScript, para Android. Detalhes em [mobile/README.md](mobile/README.md).
+- **Publicação na AWS** (`deploy/`): scripts e passo a passo para colocar tudo num servidor com https. Veja [deploy/README.md](deploy/README.md).
 - **Backend** (`backend/`): API REST em Node.js + Express + TypeScript, com banco PostgreSQL. Detalhes em [backend/README.md](backend/README.md).
 
 ## Executar
